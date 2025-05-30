@@ -1,5 +1,5 @@
 // src/controllers/uploadController.js
-const UploadService = require('../services/uploadService');
+const UploadService = require("../services/uploadService");
 
 class UploadController {
   constructor() {
@@ -10,28 +10,27 @@ class UploadController {
   async initializeUpload(req, res) {
     try {
       const { fileName, fileSize, chunkSize, mimeType } = req.body;
-      
+
       if (!fileName || !fileSize || !chunkSize) {
         return res.status(400).json({
-          error: 'Missing required parameters'
+          error: "Missing required parameters",
         });
       }
 
       const session = await this.uploadService.initializeUpload(
-        fileName, 
-        fileSize, 
-        chunkSize, 
+        fileName,
+        fileSize,
+        chunkSize,
         mimeType
       );
 
       res.json({
         success: true,
         uploadId: session.uploadId,
-        totalChunks: session.totalChunks
+        totalChunks: session.totalChunks,
       });
-
     } catch (error) {
-      console.error('Initialize upload error:', error);
+      console.error("Initialize upload error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -41,7 +40,7 @@ class UploadController {
     try {
       const { uploadId, chunkIndex } = req.body;
       const chunkBuffer = req.file.buffer;
-      
+
       const result = await this.uploadService.handleChunkUpload(
         uploadId,
         parseInt(chunkIndex),
@@ -51,11 +50,10 @@ class UploadController {
 
       res.json({
         success: true,
-        ...result
+        ...result,
       });
-
     } catch (error) {
-      console.error('Chunk upload error:', error);
+      console.error("Chunk upload error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -65,9 +63,9 @@ class UploadController {
     try {
       const { uploadId } = req.params;
       const info = this.uploadService.getUploadInfo(uploadId);
-      
+
       if (!info) {
-        return res.status(404).json({ error: 'Upload not found' });
+        return res.status(404).json({ error: "Upload not found" });
       }
 
       res.json({
@@ -76,10 +74,9 @@ class UploadController {
           uploadId: info.uploadId,
           fileName: info.fileName,
           progress: (info.receivedChunks.size / info.totalChunks) * 100,
-          status: info.status
-        }
+          status: info.status,
+        },
       });
-
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -90,8 +87,93 @@ class UploadController {
     try {
       const { uploadId } = req.params;
       await this.uploadService.cleanupUpload(uploadId);
-      
+
       res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  // Lấy danh sách upload đang hoạt động
+  async getActiveUploads(req, res) {
+    try {
+      const uploads = this.uploadService.getActiveUploads();
+
+      res.json({
+        success: true,
+        uploads: Array.from(uploads.values()).map(upload => ({
+          uploadId: upload.uploadId,
+          fileName: upload.fileName,
+          totalChunks: upload.totalChunks,
+          receivedChunks: upload.receivedChunks.size,
+          status: upload.status,
+        })),
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+// Lấy danh sách upload đã hoàn thành
+  async getCompletedUploads(req, res) {
+    try {
+      const completedUploads = this.uploadService.getCompletedUploads();
+
+      res.json({
+        success: true,
+        uploads: completedUploads.map(upload => ({
+          uploadId: upload.uploadId,
+          fileName: upload.fileName,
+          totalChunks: upload.totalChunks,
+          status: upload.status,
+        })),
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+  // Lấy danh sách upload đã hủy
+  async getCancelledUploads(req, res) {
+    try {
+      const cancelledUploads = this.uploadService.getCancelledUploads();
+
+      res.json({
+        success: true,
+        uploads: cancelledUploads.map(upload => ({
+          uploadId: upload.uploadId,
+          fileName: upload.fileName,
+          totalChunks: upload.totalChunks,
+          status: upload.status,
+        })),
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+  // Hủy upload
+  async cancelUpload(req, res) {
+    try {
+      const { uploadId } = req.params;
+      await this.uploadService.cancelUpload(uploadId);
+
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+  // Lấy danh sách upload đã hủy
+  async getCancelledUploads(req, res) {
+    try {
+      const cancelledUploads = this.uploadService.getCancelledUploads();
+
+      res.json({
+        success: true,
+        uploads: cancelledUploads.map(upload => ({
+          uploadId: upload.uploadId,
+          fileName: upload.fileName,
+          totalChunks: upload.totalChunks,
+          status: upload.status,
+        })),
+      });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

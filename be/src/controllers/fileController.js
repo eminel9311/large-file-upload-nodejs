@@ -1,35 +1,40 @@
 // src/controllers/fileController.js
-const fs = require('fs-extra');
-const path = require('path');
-const mime = require('mime-types');
+const fs = require("fs-extra");
+const path = require("path");
+const mime = require("mime-types");
 
 class FileController {
   constructor() {
-    this.uploadsDir = path.join(__dirname, '../../uploads');
-    this.tempDir = path.join(this.uploadsDir, 'temp');
-    this.processedDir = path.join(this.uploadsDir, 'processed');
+    this.uploadsDir = path.join(__dirname, "../../uploads");
+    this.tempDir = path.join(this.uploadsDir, "temp");
+    this.processedDir = path.join(this.uploadsDir, "processed");
   }
 
   // Lấy danh sách files đã upload
   async getFilesList(req, res) {
     try {
-      const { page = 1, limit = 10, type = 'all' } = req.query;
+      const { page = 1, limit = 10, type = "all" } = req.query;
       const offset = (page - 1) * limit;
 
       const files = await this.scanDirectory(this.tempDir);
       const processedFiles = await this.scanDirectory(this.processedDir);
-      
+
       // Merge và sort files
-      const allFiles = [...files, ...processedFiles].sort((a, b) => 
-        new Date(b.uploadTime) - new Date(a.uploadTime)
+      const allFiles = [...files, ...processedFiles].sort(
+        (a, b) => new Date(b.uploadTime) - new Date(a.uploadTime)
       );
 
       // Filter by type
-      const filteredFiles = type === 'all' ? allFiles : 
-        allFiles.filter(file => file.type.startsWith(type));
+      const filteredFiles =
+        type === "all"
+          ? allFiles
+          : allFiles.filter((file) => file.type.startsWith(type));
 
       // Pagination
-      const paginatedFiles = filteredFiles.slice(offset, offset + parseInt(limit));
+      const paginatedFiles = filteredFiles.slice(
+        offset,
+        offset + parseInt(limit)
+      );
 
       res.json({
         success: true,
@@ -38,12 +43,11 @@ class FileController {
           current: parseInt(page),
           total: Math.ceil(filteredFiles.length / limit),
           count: filteredFiles.length,
-          limit: parseInt(limit)
-        }
+          limit: parseInt(limit),
+        },
       });
-
     } catch (error) {
-      console.error('Get files list error:', error);
+      console.error("Get files list error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -52,17 +56,20 @@ class FileController {
   async getFileInfo(req, res) {
     try {
       const { fileId } = req.params;
-      
+
       // Tìm file trong temp và processed directories
       const tempFilePath = await this.findFileById(fileId, this.tempDir);
-      const processedFilePath = await this.findFileById(fileId, this.processedDir);
-      
+      const processedFilePath = await this.findFileById(
+        fileId,
+        this.processedDir
+      );
+
       const filePath = tempFilePath || processedFilePath;
-      
+
       if (!filePath) {
-        return res.status(404).json({ 
-          error: 'File not found',
-          fileId 
+        return res.status(404).json({
+          error: "File not found",
+          fileId,
         });
       }
 
@@ -72,10 +79,10 @@ class FileController {
         name: path.basename(filePath),
         path: filePath,
         size: stats.size,
-        type: mime.lookup(filePath) || 'application/octet-stream',
+        type: mime.lookup(filePath) || "application/octet-stream",
         created: stats.birthtime,
         modified: stats.mtime,
-        isProcessed: filePath.includes('processed')
+        isProcessed: filePath.includes("processed"),
       };
 
       // Nếu là file đã processed, lấy thêm thông tin processed files
@@ -87,11 +94,10 @@ class FileController {
 
       res.json({
         success: true,
-        file: fileInfo
+        file: fileInfo,
       });
-
     } catch (error) {
-      console.error('Get file info error:', error);
+      console.error("Get file info error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -100,40 +106,46 @@ class FileController {
   async downloadFile(req, res) {
     try {
       const { fileId, variant } = req.params;
-      
+
       let filePath;
-      
-      if (variant === 'original') {
+
+      if (variant === "original") {
         const tempFilePath = await this.findFileById(fileId, this.tempDir);
-        const processedFilePath = await this.findFileById(fileId, this.processedDir);
+        const processedFilePath = await this.findFileById(
+          fileId,
+          this.processedDir
+        );
         filePath = tempFilePath || processedFilePath;
       } else {
         // Tìm variant trong processed directory
         const processedDir = path.join(this.processedDir, fileId);
         const variantPath = path.join(processedDir, `${variant}.jpg`);
-        
+
         if (await fs.pathExists(variantPath)) {
           filePath = variantPath;
         }
       }
 
       if (!filePath || !(await fs.pathExists(filePath))) {
-        return res.status(404).json({ 
-          error: 'File not found',
+        return res.status(404).json({
+          error: "File not found",
           fileId,
-          variant 
+          variant,
         });
       }
 
       const stats = await fs.stat(filePath);
       const fileName = path.basename(filePath);
-      const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+      const mimeType = mime.lookup(filePath) || "application/octet-stream";
 
       // Set headers
-      res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Length', stats.size);
-      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader("Content-Type", mimeType);
+      res.setHeader("Content-Length", stats.size);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${fileName}"`
+      );
+      res.setHeader("Accept-Ranges", "bytes");
 
       // Handle range requests (for video streaming)
       const range = req.headers.range;
@@ -141,11 +153,11 @@ class FileController {
         const parts = range.replace(/bytes=/, "").split("-");
         const start = parseInt(parts[0], 10);
         const end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
-        const chunkSize = (end - start) + 1;
+        const chunkSize = end - start + 1;
 
         res.status(206);
-        res.setHeader('Content-Range', `bytes ${start}-${end}/${stats.size}`);
-        res.setHeader('Content-Length', chunkSize);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${stats.size}`);
+        res.setHeader("Content-Length", chunkSize);
 
         const stream = fs.createReadStream(filePath, { start, end });
         stream.pipe(res);
@@ -154,9 +166,8 @@ class FileController {
         const stream = fs.createReadStream(filePath);
         stream.pipe(res);
       }
-
     } catch (error) {
-      console.error('Download file error:', error);
+      console.error("Download file error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -165,7 +176,7 @@ class FileController {
   async deleteFile(req, res) {
     try {
       const { fileId } = req.params;
-      
+
       // Tìm và xóa file từ temp directory
       const tempFilePath = await this.findFileById(fileId, this.tempDir);
       if (tempFilePath) {
@@ -180,12 +191,11 @@ class FileController {
 
       res.json({
         success: true,
-        message: 'File deleted successfully',
-        fileId
+        message: "File deleted successfully",
+        fileId,
       });
-
     } catch (error) {
-      console.error('Delete file error:', error);
+      console.error("Delete file error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -194,12 +204,13 @@ class FileController {
   async getFileMetadata(req, res) {
     try {
       const { fileId } = req.params;
-      
-      const filePath = await this.findFileById(fileId, this.tempDir) || 
-                      await this.findFileById(fileId, this.processedDir);
-      
+
+      const filePath =
+        (await this.findFileById(fileId, this.tempDir)) ||
+        (await this.findFileById(fileId, this.processedDir));
+
       if (!filePath) {
-        return res.status(404).json({ error: 'File not found' });
+        return res.status(404).json({ error: "File not found" });
       }
 
       const stats = await fs.stat(filePath);
@@ -210,28 +221,27 @@ class FileController {
         created: stats.birthtime,
         modified: stats.mtime,
         extension: path.extname(filePath),
-        directory: path.dirname(filePath)
+        directory: path.dirname(filePath),
       };
 
       // Thêm metadata specific cho từng loại file
-      if (metadata.type?.startsWith('image/')) {
+      if (metadata.type?.startsWith("image/")) {
         // Có thể thêm EXIF data ở đây
-        metadata.category = 'image';
-      } else if (metadata.type?.startsWith('video/')) {
-        metadata.category = 'video';
-      } else if (metadata.type?.includes('pdf')) {
-        metadata.category = 'document';
+        metadata.category = "image";
+      } else if (metadata.type?.startsWith("video/")) {
+        metadata.category = "video";
+      } else if (metadata.type?.includes("pdf")) {
+        metadata.category = "document";
       } else {
-        metadata.category = 'other';
+        metadata.category = "other";
       }
 
       res.json({
         success: true,
-        metadata
+        metadata,
       });
-
     } catch (error) {
-      console.error('Get metadata error:', error);
+      console.error("Get metadata error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -239,17 +249,17 @@ class FileController {
   // Search files
   async searchFiles(req, res) {
     try {
-      const { 
-        query, 
-        type = 'all', 
-        sortBy = 'modified', 
-        order = 'desc',
+      const {
+        query,
+        type = "all",
+        sortBy = "modified",
+        order = "desc",
         page = 1,
-        limit = 10 
+        limit = 10,
       } = req.query;
 
       if (!query) {
-        return res.status(400).json({ error: 'Search query is required' });
+        return res.status(400).json({ error: "Search query is required" });
       }
 
       const files = await this.scanDirectory(this.tempDir);
@@ -257,21 +267,24 @@ class FileController {
       const allFiles = [...files, ...processedFiles];
 
       // Filter by search query
-      const searchResults = allFiles.filter(file => 
-        file.name.toLowerCase().includes(query.toLowerCase()) ||
-        file.type.toLowerCase().includes(query.toLowerCase())
+      const searchResults = allFiles.filter(
+        (file) =>
+          file.name.toLowerCase().includes(query.toLowerCase()) ||
+          file.type.toLowerCase().includes(query.toLowerCase())
       );
 
       // Filter by type
-      const typeFiltered = type === 'all' ? searchResults :
-        searchResults.filter(file => file.type.startsWith(type));
+      const typeFiltered =
+        type === "all"
+          ? searchResults
+          : searchResults.filter((file) => file.type.startsWith(type));
 
       // Sort results
       const sorted = typeFiltered.sort((a, b) => {
         const aVal = a[sortBy];
         const bVal = b[sortBy];
-        
-        if (order === 'desc') {
+
+        if (order === "desc") {
           return bVal > aVal ? 1 : -1;
         } else {
           return aVal > bVal ? 1 : -1;
@@ -290,12 +303,11 @@ class FileController {
           current: parseInt(page),
           total: Math.ceil(sorted.length / limit),
           count: sorted.length,
-          limit: parseInt(limit)
-        }
+          limit: parseInt(limit),
+        },
       });
-
     } catch (error) {
-      console.error('Search files error:', error);
+      console.error("Search files error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -311,17 +323,16 @@ class FileController {
         processed: processedStats,
         total: {
           files: tempStats.files + processedStats.files,
-          size: tempStats.size + processedStats.size
-        }
+          size: tempStats.size + processedStats.size,
+        },
       };
 
       res.json({
         success: true,
-        stats
+        stats,
       });
-
     } catch (error) {
-      console.error('Get storage stats error:', error);
+      console.error("Get storage stats error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -329,30 +340,30 @@ class FileController {
   // Helper methods
   async scanDirectory(directory) {
     const files = [];
-    
+
     if (!(await fs.pathExists(directory))) {
       return files;
     }
 
     const items = await fs.readdir(directory);
-    
+
     for (const item of items) {
       const fullPath = path.join(directory, item);
       const stats = await fs.stat(fullPath);
-      
+
       if (stats.isFile()) {
         files.push({
-          id: path.parse(item).name.split('-')[0], // Extract ID from filename
+          id: path.parse(item).name.split("-")[0], // Extract ID from filename
           name: item,
           path: fullPath,
           size: stats.size,
-          type: mime.lookup(fullPath) || 'application/octet-stream',
+          type: mime.lookup(fullPath) || "application/octet-stream",
           uploadTime: stats.birthtime,
-          modified: stats.mtime
+          modified: stats.mtime,
         });
       }
     }
-    
+
     return files;
   }
 
@@ -362,39 +373,39 @@ class FileController {
     }
 
     const items = await fs.readdir(directory);
-    
+
     for (const item of items) {
       if (item.startsWith(fileId)) {
         return path.join(directory, item);
       }
     }
-    
+
     return null;
   }
 
   async getProcessedVariants(processedDir) {
     const variants = [];
-    
+
     if (!(await fs.pathExists(processedDir))) {
       return variants;
     }
 
     const items = await fs.readdir(processedDir);
-    
+
     for (const item of items) {
       const fullPath = path.join(processedDir, item);
       const stats = await fs.stat(fullPath);
-      
+
       if (stats.isFile()) {
         variants.push({
           name: item,
           path: fullPath,
           size: stats.size,
-          type: mime.lookup(fullPath)
+          type: mime.lookup(fullPath),
         });
       }
     }
-    
+
     return variants;
   }
 
@@ -407,10 +418,10 @@ class FileController {
     }
 
     const items = await fs.readdir(directory, { withFileTypes: true });
-    
+
     for (const item of items) {
       const fullPath = path.join(directory, item.name);
-      
+
       if (item.isFile()) {
         const stats = await fs.stat(fullPath);
         files++;

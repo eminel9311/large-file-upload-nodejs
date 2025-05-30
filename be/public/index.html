@@ -3,9 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
+  <title>Large File Upload Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    #progressBar { width: 100%; background: #eee; height: 24px; border-radius: 4px; margin: 1em 0; }
+    #progress { height: 100%; background: #4caf50; width: 0%; border-radius: 4px; }
+  </style>
 </head>
 <body>
-  <h5>Hello</h5>
+  <h2>Large File Upload Demo</h2>
+  <form id="uploadForm">
+    <input type="file" id="fileInput" required />
+    <button type="submit">Upload</button>
+  </form>
+  <div id="progressBar"><div id="progress"></div></div>
+  <div id="status"></div>
+  <script src="js/socket.io.min.js"></script>
+  <script src="js/upload-client.js"></script>
 </body>
 </html>
