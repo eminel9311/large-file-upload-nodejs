@@ -24,13 +24,15 @@ class FileUploadServer {
       maxHttpBufferSize: 1e8, // 100MB
     });
 
+    this.app.set("io", this.io);
+
     this.setupMiddleware();
     this.setupRoutes();
     this.initializeServices();
   }
 
   setupMiddleware() {
-    this.app.use(helmet());
+    this.app.use(helmet({ contentSecurityPolicy: false }));
     this.app.use(compression());
     this.app.use(cors());
     this.app.use(express.json({ limit: "50mb" }));

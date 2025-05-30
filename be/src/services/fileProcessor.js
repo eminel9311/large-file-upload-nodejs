@@ -69,69 +69,78 @@ class FileProcessor {
       processed: []
     };
 
-    // Tạo thumbnail
-    io.emit('processing-update', {
-      uploadId,
-      step: 'Tạo thumbnail...',
-      progress: 25
-    });
+    try {
+      // Tạo thumbnail
+      io.emit('processing-update', {
+        uploadId,
+        step: 'Tạo thumbnail...',
+        progress: 25
+      });
 
-    const thumbnailPath = path.join(outputDir, 'thumbnail.jpg');
-    await sharp(inputPath)
-      .resize(300, 300, { fit: 'inside' })
-      .jpeg({ quality: 80 })
-      .toFile(thumbnailPath);
-    
-    results.processed.push({
-      type: 'thumbnail',
-      path: thumbnailPath,
-      size: '300x300'
-    });
+      const thumbnailPath = path.join(outputDir, 'thumbnail.jpg');
+      await sharp(inputPath)
+        .resize(320)
+        .toFile(thumbnailPath);
+      
+      results.processed.push({
+        type: 'thumbnail',
+        path: thumbnailPath,
+        size: '300x300'
+      });
 
-    // Tạo medium size
-    io.emit('processing-update', {
-      uploadId,
-      step: 'Tạo ảnh kích thước trung bình...',
-      progress: 50
-    });
+      // Tạo medium size
+      io.emit('processing-update', {
+        uploadId,
+        step: 'Tạo ảnh kích thước trung bình...',
+        progress: 50
+      });
 
-    const mediumPath = path.join(outputDir, 'medium.jpg');
-    await sharp(inputPath)
-      .resize(800, 600, { fit: 'inside' })
-      .jpeg({ quality: 85 })
-      .toFile(mediumPath);
-    
-    results.processed.push({
-      type: 'medium',
-      path: mediumPath,
-      size: '800x600'
-    });
+      const mediumPath = path.join(outputDir, 'medium.jpg');
+      await sharp(inputPath)
+        .resize(800, 600, { fit: 'inside' })
+        .jpeg({ quality: 85 })
+        .toFile(mediumPath);
+      
+      results.processed.push({
+        type: 'medium',
+        path: mediumPath,
+        size: '800x600'
+      });
 
-    // Tối ưu hóa ảnh gốc
-    io.emit('processing-update', {
-      uploadId,
-      step: 'Tối ưu hóa ảnh gốc...',
-      progress: 75
-    });
+      // Tối ưu hóa ảnh gốc
+      io.emit('processing-update', {
+        uploadId,
+        step: 'Tối ưu hóa ảnh gốc...',
+        progress: 75
+      });
 
-    const optimizedPath = path.join(outputDir, 'optimized.jpg');
-    await sharp(inputPath)
-      .jpeg({ quality: 90, progressive: true })
-      .toFile(optimizedPath);
-    
-    results.processed.push({
-      type: 'optimized',
-      path: optimizedPath,
-      size: 'original'
-    });
+      const optimizedPath = path.join(outputDir, 'optimized.jpg');
+      await sharp(inputPath)
+        .jpeg({ quality: 90, progressive: true })
+        .toFile(optimizedPath);
+      
+      results.processed.push({
+        type: 'optimized',
+        path: optimizedPath,
+        size: 'original'
+      });
 
-    io.emit('processing-update', {
-      uploadId,
-      step: 'Hoàn tất xử lý ảnh',
-      progress: 100
-    });
+      io.emit('processing-update', {
+        uploadId,
+        step: 'Hoàn tất xử lý ảnh',
+        progress: 100
+      });
 
-    return results;
+      return results;
+    } catch (error) {
+      if (error.message && error.message.includes('heif')) {
+        io.emit('processing-error', {
+          uploadId,
+          message: 'Định dạng ảnh HEIC/HEIF chưa được hỗ trợ. Vui lòng chuyển sang JPG hoặc PNG.'
+        });
+      }
+      throw error;
+    }
   }
 
   async processVideo(uploadId, session, io) {

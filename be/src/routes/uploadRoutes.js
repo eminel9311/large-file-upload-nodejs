@@ -21,15 +21,15 @@ const attachIO = (req, res, next) => {
 };
 
 // Routes
-router.post("/initialize", uploadController.initializeUpload);
+router.post("/initialize", (req, res) => uploadController.initializeUpload(req, res));
 router.post(
   "/chunk",
   upload.single("chunk"),
   attachIO,
-  uploadController.uploadChunk
+  (req, res) => uploadController.uploadChunk(req, res)
 );
-router.get("/info/:uploadId", uploadController.getUploadInfo);
-router.delete("/cleanup/:uploadId", uploadController.cleanupUpload);
-router.get("/active", uploadController.getActiveUploads);
+router.get("/info/:uploadId", (req, res) => uploadController.getUploadInfo(req, res));
+router.delete("/cleanup/:uploadId", (req, res) => uploadController.cleanupUpload(req, res));
+router.get("/active", (req, res) => uploadController.getActiveUploads(req, res));
 
 module.exports = router;

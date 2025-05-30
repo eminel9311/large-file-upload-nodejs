@@ -8,6 +8,7 @@ class UploadController {
 
   // Khởi tạo upload session
   async initializeUpload(req, res) {
+
     try {
       const { fileName, fileSize, chunkSize, mimeType } = req.body;
 
@@ -16,7 +17,6 @@ class UploadController {
           error: "Missing required parameters",
         });
       }
-
       const session = await this.uploadService.initializeUpload(
         fileName,
         fileSize,
@@ -40,7 +40,6 @@ class UploadController {
     try {
       const { uploadId, chunkIndex } = req.body;
       const chunkBuffer = req.file.buffer;
-
       const result = await this.uploadService.handleChunkUpload(
         uploadId,
         parseInt(chunkIndex),

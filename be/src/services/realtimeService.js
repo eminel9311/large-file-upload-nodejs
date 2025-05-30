@@ -17,7 +17,7 @@ class RealtimeService extends EventEmitter {
 
   setupSocketHandlers() {
     this.io.on('connection', (socket) => {
-      console.log(`🔌 Client connected: ${socket.id}`);
+      // console.log(`🔌 Client connected: ${socket.id}`);
       
       this.connectedClients.set(socket.id, {
         socket,
@@ -78,7 +78,7 @@ class RealtimeService extends EventEmitter {
 
       // Handle disconnect
       socket.on('disconnect', (reason) => {
-        console.log(`🔌 Client disconnected: ${socket.id}, reason: ${reason}`);
+        // console.log(`🔌 Client disconnected: ${socket.id}, reason: ${reason}`);
         this.handleClientDisconnect(socket.id);
       });
 

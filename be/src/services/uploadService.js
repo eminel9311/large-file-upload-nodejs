@@ -41,6 +41,7 @@ class UploadService {
       status: 'initialized'
     };
 
+
     this.activeUploads.set(uploadId, uploadSession);
     
     // Tạo thư mục cho chunks
