@@ -1,7 +1,7 @@
 // src/services/realtimeService.js
-const EventEmitter = require('events');
-const fs = require('fs-extra');
-const path = require('path');
+const EventEmitter = require("events");
+const fs = require("fs-extra");
+const path = require("path");
 
 class RealtimeService extends EventEmitter {
   constructor(io) {
@@ -10,46 +10,46 @@ class RealtimeService extends EventEmitter {
     this.connectedClients = new Map();
     this.uploadSessions = new Map();
     this.roomSubscriptions = new Map();
-    
+
     this.setupSocketHandlers();
     this.startHeartbeat();
   }
 
   setupSocketHandlers() {
-    this.io.on('connection', (socket) => {
-      // console.log(`🔌 Client connected: ${socket.id}`);
-      
+    this.io.on("connection", (socket) => {
+      console.log(`🔌 Client connected: ${socket.id}`);
+
       this.connectedClients.set(socket.id, {
         socket,
         connectedAt: Date.now(),
-        rooms: new Set()
+        rooms: new Set(),
       });
 
       // Join upload room for receiving updates
-      socket.on('join-upload-room', (uploadId) => {
+      socket.on("join-upload-room", (uploadId) => {
         socket.join(`upload-${uploadId}`);
-        
+
         const client = this.connectedClients.get(socket.id);
         client.rooms.add(`upload-${uploadId}`);
-        
+
         // Track room subscriptions
         if (!this.roomSubscriptions.has(uploadId)) {
           this.roomSubscriptions.set(uploadId, new Set());
         }
         this.roomSubscriptions.get(uploadId).add(socket.id);
 
-        socket.emit('room-joined', { 
-          uploadId, 
-          message: `Joined upload room: ${uploadId}` 
+        socket.emit("room-joined", {
+          uploadId,
+          message: `Joined upload room: ${uploadId}`,
         });
 
         console.log(`📡 Client ${socket.id} joined upload room: ${uploadId}`);
       });
 
       // Leave upload room
-      socket.on('leave-upload-room', (uploadId) => {
+      socket.on("leave-upload-room", (uploadId) => {
         socket.leave(`upload-${uploadId}`);
-        
+
         const client = this.connectedClients.get(socket.id);
         if (client) {
           client.rooms.delete(`upload-${uploadId}`);
@@ -59,31 +59,31 @@ class RealtimeService extends EventEmitter {
           this.roomSubscriptions.get(uploadId).delete(socket.id);
         }
 
-        socket.emit('room-left', { 
-          uploadId, 
-          message: `Left upload room: ${uploadId}` 
+        socket.emit("room-left", {
+          uploadId,
+          message: `Left upload room: ${uploadId}`,
         });
       });
 
       // Request current upload status
-      socket.on('get-upload-status', (uploadId) => {
+      socket.on("get-upload-status", (uploadId) => {
         const status = this.getUploadStatus(uploadId);
-        socket.emit('upload-status-response', { uploadId, status });
+        socket.emit("upload-status-response", { uploadId, status });
       });
 
       // Client heartbeat
-      socket.on('ping', () => {
-        socket.emit('pong', { timestamp: Date.now() });
+      socket.on("ping", () => {
+        socket.emit("pong", { timestamp: Date.now() });
       });
 
       // Handle disconnect
-      socket.on('disconnect', (reason) => {
+      socket.on("disconnect", (reason) => {
         // console.log(`🔌 Client disconnected: ${socket.id}, reason: ${reason}`);
         this.handleClientDisconnect(socket.id);
       });
 
       // Error handling
-      socket.on('error', (error) => {
+      socket.on("error", (error) => {
         console.error(`❌ Socket error for ${socket.id}:`, error);
       });
     });
@@ -93,18 +93,18 @@ class RealtimeService extends EventEmitter {
     const client = this.connectedClients.get(socketId);
     if (client) {
       // Remove from room subscriptions
-      client.rooms.forEach(room => {
-        const uploadId = room.replace('upload-', '');
+      client.rooms.forEach((room) => {
+        const uploadId = room.replace("upload-", "");
         if (this.roomSubscriptions.has(uploadId)) {
           this.roomSubscriptions.get(uploadId).delete(socketId);
-          
+
           // Clean up empty room subscriptions
           if (this.roomSubscriptions.get(uploadId).size === 0) {
             this.roomSubscriptions.delete(uploadId);
           }
         }
       });
-      
+
       this.connectedClients.delete(socketId);
     }
   }
@@ -112,18 +112,18 @@ class RealtimeService extends EventEmitter {
   // Broadcast upload progress
   broadcastUploadProgress(uploadId, progressData) {
     const room = `upload-${uploadId}`;
-    
+
     // Store latest progress
     this.uploadSessions.set(uploadId, {
       ...this.uploadSessions.get(uploadId),
       progress: progressData,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
     });
 
-    this.io.to(room).emit('upload-progress', {
+    this.io.to(room).emit("upload-progress", {
       uploadId,
       ...progressData,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     console.log(`📊 Progress broadcast to room ${room}:`, progressData);
@@ -132,18 +132,18 @@ class RealtimeService extends EventEmitter {
   // Broadcast upload completion
   broadcastUploadComplete(uploadId, completionData) {
     const room = `upload-${uploadId}`;
-    
+
     this.uploadSessions.set(uploadId, {
       ...this.uploadSessions.get(uploadId),
-      status: 'completed',
+      status: "completed",
       completedAt: Date.now(),
-      ...completionData
+      ...completionData,
     });
 
-    this.io.to(room).emit('upload-complete', {
+    this.io.to(room).emit("upload-complete", {
       uploadId,
       ...completionData,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     console.log(`✅ Upload completion broadcast to room ${room}`);
@@ -152,19 +152,19 @@ class RealtimeService extends EventEmitter {
   // Broadcast processing updates
   broadcastProcessingUpdate(uploadId, updateData) {
     const room = `upload-${uploadId}`;
-    
+
     const session = this.uploadSessions.get(uploadId) || {};
     session.processing = {
       ...session.processing,
       ...updateData,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
     };
     this.uploadSessions.set(uploadId, session);
 
-    this.io.to(room).emit('processing-update', {
+    this.io.to(room).emit("processing-update", {
       uploadId,
       ...updateData,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     console.log(`🔄 Processing update broadcast to room ${room}:`, updateData);
@@ -173,20 +173,20 @@ class RealtimeService extends EventEmitter {
   // Broadcast processing completion
   broadcastProcessingComplete(uploadId, result) {
     const room = `upload-${uploadId}`;
-    
+
     const session = this.uploadSessions.get(uploadId) || {};
     session.processing = {
       ...session.processing,
-      status: 'completed',
+      status: "completed",
       result,
-      completedAt: Date.now()
+      completedAt: Date.now(),
     };
     this.uploadSessions.set(uploadId, session);
 
-    this.io.to(room).emit('processing-complete', {
+    this.io.to(room).emit("processing-complete", {
       uploadId,
       result,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     console.log(`🎉 Processing completion broadcast to room ${room}`);
@@ -195,11 +195,11 @@ class RealtimeService extends EventEmitter {
   // Broadcast error messages
   broadcastError(uploadId, error) {
     const room = `upload-${uploadId}`;
-    
-    this.io.to(room).emit('upload-error', {
+
+    this.io.to(room).emit("upload-error", {
       uploadId,
       error: error.message || error,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     console.error(`❌ Error broadcast to room ${room}:`, error);
@@ -227,18 +227,18 @@ class RealtimeService extends EventEmitter {
       activeUploads: this.uploadSessions.size,
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
-    this.io.emit('system-status', status);
+    this.io.emit("system-status", status);
   }
 
   // Start heartbeat to keep connections alive
   startHeartbeat() {
     setInterval(() => {
-      this.io.emit('heartbeat', { 
+      this.io.emit("heartbeat", {
         timestamp: Date.now(),
-        connectedClients: this.getConnectedClientsCount()
+        connectedClients: this.getConnectedClientsCount(),
       });
     }, 30000); // Every 30 seconds
 
@@ -254,7 +254,7 @@ class RealtimeService extends EventEmitter {
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
     for (const [uploadId, session] of this.uploadSessions.entries()) {
-      if (session.lastUpdate && (now - session.lastUpdate) > maxAge) {
+      if (session.lastUpdate && now - session.lastUpdate > maxAge) {
         this.uploadSessions.delete(uploadId);
         console.log(`🧹 Cleaned up old session: ${uploadId}`);
       }
@@ -279,12 +279,14 @@ class RealtimeService extends EventEmitter {
     return {
       connectedClients: this.getConnectedClientsCount(),
       activeUploads: this.uploadSessions.size,
-      roomSubscriptions: Array.from(this.roomSubscriptions.entries()).map(([uploadId, clients]) => ({
-        uploadId,
-        subscriberCount: clients.size
-      })),
+      roomSubscriptions: Array.from(this.roomSubscriptions.entries()).map(
+        ([uploadId, clients]) => ({
+          uploadId,
+          subscriberCount: clients.size,
+        })
+      ),
       uptime: process.uptime(),
-      memory: process.memoryUsage()
+      memory: process.memoryUsage(),
     };
   }
 }
